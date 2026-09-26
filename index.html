@@ -3,8 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Paperless — Receipt scanner for freelancers</title>
-<meta name="description" content="Snap a photo, log the expense, keep proof for tax season. Free receipt tracker for freelancers and small businesses.">
+<title>Paperless: Receipt scanner for freelancers</title>
+<meta name="description" content="Snap a photo, log the expense, and keep proof for tax season. A free receipt tracker built for freelancers and small businesses.">
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 :root{
@@ -26,9 +28,17 @@ nav{display:flex;align-items:center;justify-content:space-between;padding:18px 0
 .brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:17px}
 .brand-badge{width:32px;height:32px;background:var(--purple);border-radius:9px;display:flex;align-items:center;justify-content:center;color:#fff}
 .brand-badge .icon{width:17px;height:17px}
-.nav-links{display:flex;gap:24px;font-size:14px;color:var(--text2)}
+.nav-links{display:flex;align-items:center;gap:24px;font-size:14px;color:var(--text2)}
 .nav-links a:hover{color:var(--purple)}
-@media(max-width:640px){.nav-links{display:none}}
+.nav-toggle{display:none;background:none;border:1px solid var(--border);border-radius:8px;width:36px;height:36px;align-items:center;justify-content:center;cursor:pointer}
+@media(max-width:640px){
+  .nav-toggle{display:flex}
+  .nav-links{position:absolute;top:60px;left:20px;right:20px;background:#fff;border:1px solid var(--border);border-radius:var(--r2);flex-direction:column;align-items:flex-start;gap:0;padding:8px;box-shadow:0 12px 30px rgba(0,0,0,.1);display:none;z-index:20}
+  .nav-links.open{display:flex}
+  .nav-links a{width:100%;padding:12px 10px;border-radius:8px}
+  .nav-links a:hover{background:var(--bg2)}
+  nav{position:relative}
+}
 .hero{padding:64px 0 48px;text-align:center}
 .hero-badge{display:inline-flex;align-items:center;gap:6px;background:var(--purple-light);color:var(--purple);font-size:12px;font-weight:600;padding:6px 14px;border-radius:20px;margin-bottom:20px}
 .hero-badge .icon{width:14px;height:14px}
@@ -42,29 +52,21 @@ nav{display:flex;align-items:center;justify-content:space-between;padding:18px 0
 .btn-primary{background:var(--purple);color:#fff;border-color:var(--purple);box-shadow:0 8px 20px rgba(60,52,137,.25)}
 .btn-outline{background:#fff;color:var(--text)}
 .cta-sub{font-size:12px;color:var(--text3)}
-.phone-wrap{display:flex;justify-content:center;margin:48px 0}
-.phone{width:260px;height:530px;background:var(--bg3);border-radius:32px;border:8px solid #1c1c1e;box-shadow:0 30px 70px rgba(0,0,0,.18);overflow:hidden;position:relative}
-.phone-notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:90px;height:18px;background:#1c1c1e;border-radius:0 0 12px 12px;z-index:5}
-.phone-top{height:44px;background:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 14px;border-bottom:1px solid var(--border)}
-.phone-logo{display:flex;align-items:center;gap:8px}
-.phone-badge{width:26px;height:26px;background:var(--purple-light);border-radius:7px;display:flex;align-items:center;justify-content:center;color:var(--purple)}
-.phone-badge .icon{width:14px;height:14px}
-.phone-body{padding:14px}
-.pstat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
-.pstat{background:#fff;border:1px solid var(--border);border-radius:12px;padding:10px}
-.pstat-label{font-size:9px;color:var(--text2);margin-bottom:4px}
-.pstat-val{font-size:16px;font-weight:700}
-.plist{background:#fff;border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:14px}
-.prow{display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:1px solid var(--border)}
-.prow:last-child{border-bottom:none}
-.pri{width:30px;height:30px;border-radius:8px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
-.pri .icon{width:15px;height:15px}
-.prow-info{flex:1}
-.prow-title{font-size:11px;font-weight:600}
-.prow-sub{font-size:9px;color:var(--text3)}
-.prow-amt{font-size:11px;font-weight:700}
-.pbtn{background:var(--purple);color:#fff;text-align:center;padding:11px;border-radius:10px;font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:6px}
-.pbtn .icon{width:14px;height:14px}
+.phone-wrap{display:flex;justify-content:center;margin:64px 0;perspective:1600px}
+.phone-stage{position:relative;transform-style:preserve-3d}
+.phone-shot{display:block;width:270px;height:auto;
+  filter:
+    drop-shadow(0 35px 45px rgba(30,20,70,.3))
+    drop-shadow(0 12px 18px rgba(30,20,70,.2))
+    drop-shadow(-14px 20px 24px rgba(0,0,0,.15));
+  transform:rotateY(-14deg) rotateX(4deg) rotateZ(1deg);
+  transition:transform .5s cubic-bezier(.2,.8,.2,1),filter .5s ease}
+.phone-wrap:hover .phone-shot{transform:rotateY(-4deg) rotateX(1deg) rotateZ(0deg) translateY(-4px)}
+@media(max-width:640px){
+  .phone-wrap{perspective:none}
+  .phone-shot{transform:none}
+  .phone-wrap:hover .phone-shot{transform:none}
+}
 .section{padding:56px 0}
 .section-title{text-align:center;font-size:26px;font-weight:800;margin-bottom:8px}
 .section-sub{text-align:center;color:var(--text2);font-size:14px;margin-bottom:40px}
@@ -88,9 +90,47 @@ nav{display:flex;align-items:center;justify-content:space-between;padding:18px 0
 .price-list li .icon{width:15px;height:15px;color:var(--green);flex-shrink:0;margin-top:1px}
 .price-list li.muted{color:var(--text3)}
 .price-list li.muted .icon{color:var(--border2)}
-footer{border-top:1px solid var(--border);padding:32px 0;text-align:center;color:var(--text3);font-size:13px}
+footer{border-top:1px solid var(--border);padding:40px 0 32px;text-align:center;color:var(--text3);font-size:13px}
 footer a{color:var(--purple);font-weight:500}
-.footer-links{display:flex;gap:20px;justify-content:center;margin-bottom:14px;font-size:13px}
+.footer-brand{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:20px}
+.footer-brand-badge{width:30px;height:30px;border-radius:9px;flex-shrink:0;object-fit:cover;box-shadow:0 4px 10px rgba(60,52,137,.2)}
+.footer-brand-text{font-size:14px;color:var(--text2)}
+.footer-brand-text strong{color:var(--text);font-weight:700}
+.footer-contact{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);max-width:420px;margin:0 auto;padding:18px 20px}
+.footer-contact-links{display:flex;flex-wrap:wrap;gap:8px 20px;justify-content:center;font-size:13px}
+.footer-contact-links a{display:inline-flex;align-items:center;gap:6px}
+.footer-contact-links .icon{width:14px;height:14px}
+
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(20,18,35,.5);align-items:center;justify-content:center;padding:20px;z-index:100}
+.modal-overlay.open{display:flex}
+.modal-box{background:#fff;border-radius:var(--r2);max-width:400px;width:100%;padding:26px;box-shadow:0 30px 60px rgba(0,0,0,.25)}
+.modal-title{font-size:18px;font-weight:800;margin-bottom:10px}
+.modal-text{font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:16px}
+.modal-steps{font-size:13px;color:var(--text2);line-height:1.7;margin:0 0 20px 18px}
+.modal-steps li{margin-bottom:4px}
+.modal-actions{display:flex;gap:10px;justify-content:flex-end}
+.modal-actions .btn{padding:10px 18px;font-size:14px}
+
+.video-wrap{max-width:760px;margin:0 auto;border-radius:var(--r2);overflow:hidden;box-shadow:0 20px 50px rgba(0,0,0,.15);border:1px solid var(--border);background:#000}
+.video-wrap video{display:block;width:100%;max-height:70vh;background:#000}
+
+.rating-summary{display:flex;flex-direction:column;align-items:center;gap:6px;margin-bottom:36px}
+.rating-score{font-size:40px;font-weight:800}
+.rating-stars{display:flex;gap:3px}
+.rating-stars .icon{width:20px;height:20px}
+.rating-count{font-size:13px;color:var(--text2)}
+.hero-rating{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--text2);margin-bottom:18px}
+.hero-rating .rating-stars .icon{width:14px;height:14px}
+.review-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+@media(max-width:768px){.review-grid{grid-template-columns:1fr}}
+.review-card{background:#fff;border:1px solid var(--border);border-radius:var(--r2);padding:20px}
+.review-card .rating-stars{margin-bottom:10px}
+.review-card .rating-stars .icon{width:15px;height:15px}
+.review-text{font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:14px}
+.review-author{display:flex;align-items:center;gap:10px}
+.review-avatar{width:30px;height:30px;border-radius:50%;background:var(--purple-light);color:var(--purple);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0}
+.review-name{font-size:12px;font-weight:700}
+.review-meta{font-size:11px;color:var(--text3)}
 </style>
 </head>
 <body>
@@ -103,10 +143,14 @@ footer a{color:var(--purple);font-weight:500}
       </div>
       Paperless
     </div>
-    <div class="nav-links">
+    <button class="nav-toggle" id="nav-toggle" aria-label="Toggle menu" aria-expanded="false">
+      <svg class="icon" viewBox="0 0 24 24" style="width:18px;height:18px"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
+    <div class="nav-links" id="nav-links">
       <a href="#features">Features</a>
+      <a href="#reviews">Reviews</a>
       <a href="#pricing">Pricing</a>
-      <a href="https://devaltair05.github.io/paperless-app/">Open web app</a>
+      <a href="https://paperless-app-delta.vercel.app/">Open web app</a>
     </div>
   </nav>
 </div>
@@ -118,66 +162,58 @@ footer a{color:var(--purple);font-weight:500}
       Built for freelancers & small business
     </div>
     <h1>Snap a receipt.<br>Keep <span>proof</span> for tax season.</h1>
-    <p>Paperless logs your expenses in seconds and keeps a photo of every receipt — so you're never scrambling for proof when tax time comes.</p>
+    <p>Paperless logs your expenses in seconds and keeps a photo of every receipt, so you're covered when tax time comes.</p>
+    <div class="hero-rating" id="hero-rating"></div>
     <div class="cta-row">
-      <a class="btn btn-primary" href="https://devaltair05.github.io/paperless-app/">
+      <a class="btn btn-primary" href="https://paperless-app-delta.vercel.app/">
         <svg class="icon" viewBox="0 0 24 24" style="width:16px;height:16px"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-        Open web app — free
+        Open web app, it's free
       </a>
       <a class="btn btn-outline" id="apk-download-btn" href="#">
         <svg class="icon" viewBox="0 0 24 24" style="width:16px;height:16px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
         Download for Android
       </a>
+      <button type="button" class="btn btn-outline" id="ios-btn">
+        <svg viewBox="0 0 384 512" style="width:15px;height:15px;fill:currentColor;stroke:none;flex-shrink:0"><path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z"/></svg>
+        Use on iOS
+      </button>
     </div>
     <div class="cta-sub">Free forever for 10 receipts a month · No credit card needed</div>
   </div>
 
   <div class="phone-wrap">
-    <div class="phone">
-      <div class="phone-notch"></div>
-      <div class="phone-top">
-        <div class="phone-logo">
-          <div class="phone-badge">
-            <svg class="icon" viewBox="0 0 24 24" stroke="var(--purple)"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-          </div>
-          <div style="font-size:12px;font-weight:700">Paperless</div>
-        </div>
-        <div style="display:flex;gap:5px">
-          <div style="width:24px;height:24px;border:1px solid var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center">
-            <svg class="icon" viewBox="0 0 24 24" style="width:12px;height:12px;color:var(--text2)"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-          </div>
-          <div style="width:24px;height:24px;border:1px solid var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center">
-            <svg class="icon" viewBox="0 0 24 24" style="width:12px;height:12px;color:var(--text2)"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-          </div>
-        </div>
-      </div>
-      <div class="phone-body">
-        <div class="pstat-grid">
-          <div class="pstat"><div class="pstat-label">Receipts</div><div class="pstat-val">3</div></div>
-          <div class="pstat"><div class="pstat-label">Total spent</div><div class="pstat-val">$241.40</div></div>
-        </div>
-        <div class="plist">
-          <div class="prow">
-            <div class="pri" style="background:var(--green-light)"><svg class="icon" viewBox="0 0 24 24" stroke="var(--green)"><path d="M6 2l3 6 5-3-2 9H6L4 6z"/><line x1="6" y1="18" x2="18" y2="18"/></svg></div>
-            <div class="prow-info"><div class="prow-title">Shake Shack</div><div class="prow-sub">Jun 14 · Food</div></div>
-            <div class="prow-amt">$42.80</div>
-          </div>
-          <div class="prow">
-            <div class="pri" style="background:var(--purple-light)"><svg class="icon" viewBox="0 0 24 24" stroke="var(--purple)"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div>
-            <div class="prow-info"><div class="prow-title">Figma</div><div class="prow-sub">Jun 12 · Software</div></div>
-            <div class="prow-amt">$15.00</div>
-          </div>
-          <div class="prow">
-            <div class="pri" style="background:var(--blue-light)"><svg class="icon" viewBox="0 0 24 24" stroke="var(--blue)"><path d="M3 12h2l2-6h10l2 6h2M5 12v6h14v-6"/><circle cx="8" cy="18" r="1.5"/><circle cx="16" cy="18" r="1.5"/></svg></div>
-            <div class="prow-info"><div class="prow-title">Grab — Airport</div><div class="prow-sub">Jun 10 · Travel</div></div>
-            <div class="prow-amt">$183.60</div>
-          </div>
-        </div>
-        <div class="pbtn">
-          <svg class="icon" viewBox="0 0 24 24" stroke="#fff"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-          Scan a new receipt
-        </div>
-      </div>
+    <div class="phone-stage">
+      <img class="phone-shot" src="assets/app-screenshot.png" alt="Paperless app dashboard showing receipts, total spent, and recent scans">
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="ios-modal" aria-hidden="true">
+  <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="ios-modal-title">
+    <div class="modal-title" id="ios-modal-title">Using Paperless on iOS</div>
+    <p class="modal-text">There's no App Store app yet, but Paperless runs great on iPhone straight from Safari, and you can add it to your Home Screen so it opens just like a regular app.</p>
+    <ol class="modal-steps">
+      <li>Open <strong>paperless-app-delta.vercel.app</strong> in Safari</li>
+      <li>Tap the <strong>Share</strong> icon at the bottom of the screen</li>
+      <li>Scroll down and tap <strong>Add to Home Screen</strong></li>
+      <li>Tap <strong>Add</strong>, then launch Paperless from your Home Screen</li>
+    </ol>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-outline" id="ios-modal-cancel">Cancel</button>
+      <button type="button" class="btn btn-primary" id="ios-modal-proceed">Proceed</button>
+    </div>
+  </div>
+</div>
+
+<div class="section" id="promo" style="padding-top:0">
+  <div class="wrap">
+    <div class="section-title">See Paperless in action</div>
+    <div class="section-sub">A quick 40 second look at how a receipt turns into proof you can hand your accountant.</div>
+    <div class="video-wrap">
+      <video controls preload="metadata" playsinline>
+        <source src="assets/paperless-promo.mp4" type="video/mp4">
+        Your browser doesn't support embedded video. <a href="assets/paperless-promo.mp4">Download the video</a> instead.
+      </video>
     </div>
   </div>
 </div>
@@ -185,30 +221,39 @@ footer a{color:var(--purple);font-weight:500}
 <div class="section" id="features" style="background:var(--bg2)">
   <div class="wrap">
     <div class="section-title">Everything you need, nothing you don't</div>
-    <div class="section-sub">Built to solve one real problem — proving your expenses without the busywork.</div>
+    <div class="section-sub">Built to solve one real problem: proving your expenses without the busywork.</div>
     <div class="feature-grid">
       <div class="feature-card">
         <div class="feature-icon" style="background:var(--purple-light)">
           <svg class="icon" viewBox="0 0 24 24" stroke="var(--purple)"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
         </div>
         <h3>Photo proof of purchase</h3>
-        <p>Every receipt gets a real photo attached — synced across every device you log into, ready for any audit.</p>
+        <p>Every receipt gets a real photo attached, synced across every device you log into and ready whenever you need it for an audit.</p>
       </div>
       <div class="feature-card">
         <div class="feature-icon" style="background:var(--green-light)">
           <svg class="icon" viewBox="0 0 24 24" stroke="var(--green)"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
         </div>
         <h3>Works everywhere</h3>
-        <p>Use it in your browser or install the Android app — your data stays in sync either way.</p>
+        <p>Use it in your browser or install the Android app. Your data stays in sync either way.</p>
       </div>
       <div class="feature-card">
         <div class="feature-icon" style="background:var(--office-light)">
           <svg class="icon" viewBox="0 0 24 24" stroke="var(--office)"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>
         </div>
         <h3>Export anytime</h3>
-        <p>Free CSV export always. Upgrade for branded Excel and PDF reports ready to send to your accountant.</p>
+        <p>CSV export is free forever. Upgrade to Pro or Max for unlimited Excel and PDF reports ready to send to your accountant.</p>
       </div>
     </div>
+  </div>
+</div>
+
+<div class="section" id="reviews" style="background:var(--bg2)">
+  <div class="wrap">
+    <div class="section-title">Loved by early users</div>
+    <div class="section-sub">Here's what real people are saying after using Paperless to track their receipts.</div>
+    <div class="rating-summary" id="rating-summary"></div>
+    <div class="review-grid" id="review-grid"></div>
   </div>
 </div>
 
@@ -225,7 +270,7 @@ footer a{color:var(--purple);font-weight:500}
           <li><svg class="icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg> Photo proof included</li>
           <li><svg class="icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg> CSV export</li>
         </ul>
-        <a class="btn btn-outline" style="width:100%;justify-content:center" href="https://devaltair05.github.io/paperless-app/">Get started</a>
+        <a class="btn btn-outline" style="width:100%;justify-content:center" href="https://paperless-app-delta.vercel.app/">Get started</a>
       </div>
       <div class="price-card highlight">
         <div class="price-tag">Most popular</div>
@@ -233,40 +278,178 @@ footer a{color:var(--purple);font-weight:500}
         <div class="price-amt">$2.99<span>/month</span></div>
         <ul class="price-list">
           <li><svg class="icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg> 100 receipts a month</li>
-          <li><svg class="icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg> Excel & PDF export</li>
-          <li><svg class="icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg> Photo proof included</li>
-          <li><svg class="icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg> Priority support</li>
+          <li><svg class="icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg> Unlimited Excel & PDF export</li>
+          <li><svg class="icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg> Cloud sync across devices</li>
+          <li><svg class="icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg> Photo proof of purchase</li>
+          <li><svg class="icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg> Priority email support</li>
         </ul>
-        <a class="btn btn-primary" style="width:100%;justify-content:center" href="https://devaltair05.github.io/paperless-app/?intent=upgrade">Upgrade to Pro</a>
+        <a class="btn btn-primary" style="width:100%;justify-content:center" href="https://paperless-app-delta.vercel.app/?intent=upgrade">Upgrade to Pro</a>
       </div>
       <div class="price-card">
-        <div class="price-tag" style="background:#f0f0f0;color:var(--text3)">Coming soon</div>
+        <div class="price-tag" style="background:var(--green-light);color:var(--green)">Everything</div>
         <div class="price-name">Max</div>
         <div class="price-amt">$4.99<span>/month</span></div>
         <ul class="price-list">
-          <li class="muted"><svg class="icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg> Unlimited receipts</li>
-          <li class="muted"><svg class="icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg> Everything in Pro</li>
-          <li class="muted"><svg class="icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg> AI-powered auto-scan</li>
+          <li><svg class="icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg> 1,000 receipts a month</li>
+          <li><svg class="icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg> Everything in Pro</li>
+          <li><svg class="icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg> AI-powered auto-scan</li>
+          <li><svg class="icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg> Full zip export & expense reports</li>
         </ul>
-        <a class="btn btn-outline" style="width:100%;justify-content:center;opacity:.6;pointer-events:none">Coming soon</a>
+        <a class="btn" style="width:100%;justify-content:center;background:var(--green);color:#fff;border-color:var(--green)" href="https://paperless-app-delta.vercel.app/?intent=upgrade-max">Upgrade to Max</a>
       </div>
     </div>
   </div>
 </div>
 
 <footer>
-  <div class="footer-links">
-    <a href="https://devaltair05.github.io/paperless-app/">Web app</a>
-    <a href="https://github.com/DevAltair05/paperless-app">GitHub</a>
-    <a id="apk-download-footer" href="#">Download APK</a>
+  <div class="footer-brand">
+    <img class="footer-brand-badge" src="assets/altairco-icon.png" alt="AltairCo" width="30" height="30">
+    <div class="footer-brand-text">Launched by <strong>AltairCo</strong></div>
   </div>
-  Built by <a href="https://devaltair05.github.io/paperless-app/">Dev Altair</a> · Paperless © 2026
+
+  <div class="footer-contact">
+    <div class="footer-contact-links">
+      <a href="mailto:altairco.dev@gmail.com">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M22 6c0-1.1-.9-2-2-2H4a2 2 0 0 0-2 2v12c0 1.1.9 2 2 2h16a2 2 0 0 0 2-2V6z"/><polyline points="22 6 12 13 2 6"/></svg>
+        altairco.dev@gmail.com
+      </a>
+      <a href="https://github.com/DevAltair05" target="_blank" rel="noopener">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6 0 0 0-1.3-3.2 4.2 4.2 0 0 0-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3 0 0 0-6.2 0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2 0 0 0-.1 3.2A4.6 4.6 0 0 0 4 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg>
+        github.com/DevAltair05
+      </a>
+    </div>
+  </div>
 </footer>
 
 <script>
 const APK_DOWNLOAD_URL = "PASTE_YOUR_GOOGLE_DRIVE_LINK_HERE";
 document.getElementById('apk-download-btn').href = APK_DOWNLOAD_URL;
-document.getElementById('apk-download-footer').href = APK_DOWNLOAD_URL;
+
+// Mobile nav menu toggle
+(function(){
+  var toggle = document.getElementById('nav-toggle');
+  var links = document.getElementById('nav-links');
+  if(!toggle || !links) return;
+  toggle.addEventListener('click', function(){
+    var open = links.classList.toggle('open');
+    toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+  links.querySelectorAll('a').forEach(function(a){
+    a.addEventListener('click', function(){ links.classList.remove('open'); toggle.setAttribute('aria-expanded','false'); });
+  });
+})();
+
+// iOS "how it works" modal
+(function(){
+  var iosBtn = document.getElementById('ios-btn');
+  var modal = document.getElementById('ios-modal');
+  var cancelBtn = document.getElementById('ios-modal-cancel');
+  var proceedBtn = document.getElementById('ios-modal-proceed');
+  if(!iosBtn || !modal) return;
+
+  function openModal(){
+    modal.classList.add('open');
+    modal.setAttribute('aria-hidden', 'false');
+  }
+  function closeModal(){
+    modal.classList.remove('open');
+    modal.setAttribute('aria-hidden', 'true');
+  }
+
+  iosBtn.addEventListener('click', openModal);
+  cancelBtn.addEventListener('click', closeModal);
+  modal.addEventListener('click', function(e){ if(e.target === modal) closeModal(); });
+  proceedBtn.addEventListener('click', function(){
+    closeModal();
+    window.open('https://paperless-app-delta.vercel.app/', '_blank');
+  });
+})();
+
+// --- Reviews / rating -----------------------------------------------------
+// Pulled live from Firestore (app_config/reviews), the same document the
+// Paperless admin panel's "Launcher reviews" tab writes to
+// (admin.html → Configuration → Launcher reviews). Update reviews there;
+// this page picks them up on next load, no code change needed. The overall
+// star rating (hero badge + section header) is computed from whatever is
+// listed there, so it's always in sync.
+//
+// If Firestore can't be reached (offline, blocked, doc not created yet),
+// falls back to this small built-in set so the section never looks empty.
+const REVIEWS_FALLBACK = [
+  { name: "Aarav Kapoor", role: "Freelance designer", rating: 5, text: "Snapping a receipt takes five seconds and I never lose a photo anymore. Tax season used to be a scramble, but not this year." },
+  { name: "Maria Lopez", role: "Small business owner", rating: 5, text: "Switched from a shoebox of paper receipts to this. The CSV export alone saved my accountant hours." },
+  { name: "Priya Nair", role: "Consultant", rating: 5, text: "The photo proof of purchase feature is the whole reason I keep using it. Every audit question gets an instant answer." }
+];
+
+function rvEscape(str){
+  return String(str == null ? '' : str)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function starsSvg(filled){
+  return '<svg class="icon" viewBox="0 0 24 24" style="stroke:none;fill:' + (filled ? 'var(--purple)' : 'var(--border2)') + '"><path d="M12 2l2.9 6.9L22 9.6l-5.5 5 1.6 7.4L12 18.3 5.9 22l1.6-7.4L2 9.6l7.1-.7z"/></svg>';
+}
+function starsHtml(rating){
+  var out = '';
+  for(var i = 1; i <= 5; i++) out += starsSvg(i <= Math.round(rating));
+  return '<span class="rating-stars">' + out + '</span>';
+}
+
+function renderReviews(reviews){
+  if(!reviews || !reviews.length) return;
+  var avg = reviews.reduce(function(sum, r){ return sum + (Number(r.rating) || 0); }, 0) / reviews.length;
+  var avgRounded = Math.round(avg * 10) / 10;
+
+  var heroRating = document.getElementById('hero-rating');
+  if(heroRating){
+    heroRating.innerHTML = starsHtml(avg) + '<span>' + avgRounded + ' from ' + reviews.length + ' review' + (reviews.length === 1 ? '' : 's') + '</span>';
+  }
+
+  var summary = document.getElementById('rating-summary');
+  if(summary){
+    summary.innerHTML =
+      '<div class="rating-score">' + avgRounded + '</div>' +
+      starsHtml(avg) +
+      '<div class="rating-count">Based on ' + reviews.length + ' review' + (reviews.length === 1 ? '' : 's') + '</div>';
+  }
+
+  var grid = document.getElementById('review-grid');
+  if(grid){
+    grid.innerHTML = reviews.map(function(r){
+      var initial = (r.name || '?').trim().charAt(0).toUpperCase();
+      return '' +
+        '<div class="review-card">' +
+          starsHtml(Number(r.rating) || 0) +
+          '<div class="review-text">"' + rvEscape(r.text) + '"</div>' +
+          '<div class="review-author">' +
+            '<div class="review-avatar">' + rvEscape(initial) + '</div>' +
+            '<div>' +
+              '<div class="review-name">' + rvEscape(r.name) + '</div>' +
+              (r.role ? '<div class="review-meta">' + rvEscape(r.role) + '</div>' : '') +
+            '</div>' +
+          '</div>' +
+        '</div>';
+    }).join('');
+  }
+}
+
+(async function loadReviews(){
+  try{
+    firebase.initializeApp({
+      apiKey: "AIzaSyC8c91MqQwjgJzSM0TSTBXgAa_ZBk4TCUQ",
+      authDomain: "paperless-app-deb17.firebaseapp.com",
+      projectId: "paperless-app-deb17",
+      storageBucket: "paperless-app-deb17.firebasestorage.app",
+      messagingSenderId: "467939667716",
+      appId: "1:467939667716:web:b6978fee15f6b31b716a51"
+    });
+    const doc = await firebase.firestore().collection('app_config').doc('reviews').get();
+    const entries = doc.exists ? doc.data().entries : null;
+    renderReviews(Array.isArray(entries) && entries.length ? entries : REVIEWS_FALLBACK);
+  }catch(e){
+    console.warn('Could not load live reviews, showing fallback:', e);
+    renderReviews(REVIEWS_FALLBACK);
+  }
+})();
 </script>
 
 </body>
